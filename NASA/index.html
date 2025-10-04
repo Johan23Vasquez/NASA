@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mapa interactivo en recuadro</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    #mapContainer {
+      width: 400px;
+      height: 300px;
+      border: 2px solid #ccc;
+      margin-top: 10px;
+      display: none; /* oculto al inicio */
+    }
+    #inputs { margin-bottom: 10px; }
+    #btnShowMap { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Selecciona una ubicación para obtener datos climáticos</h2>
+
+  <div id="inputs">
+    <label>Latitud: <input type="number" step="0.00001" id="latInput"></label>
+    <label>Longitud: <input type="number" step="0.00001" id="lonInput"></label>
+    <button id="btnConsultar">Consultar</button>
+    <button id="btnShowMap">Mostrar mapa</button>
+  </div>
+
+  <!-- Recuadro para el mapa -->
+  <div id="mapContainer"></div>
+
+  <pre id="output">Esperando selección...</pre>
+
+  <script>
+    var map, marker;
+    var customIcon = L.icon({
+      iconUrl: 'https://static.vecteezy.com/system/resources/previews/011/629/817/original/realistic-red-pushpin-png.png', 
+      iconSize: [38, 38],
+      iconAnchor: [19, 38],
+      popupAnchor: [0, -38]
+    });
+
+    function consultarAPI(lat, lon) {
+      document.getElementById("output").innerText = 
+        "Consultando datos para: " + lat.toFixed(5) + ", " + lon.toFixed(5);
+
+      fetch(`http://127.0.0.1:8000/weather?lat=${lat}&lon=${lon}`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+        })
+        .catch(err => {
+          document.getElementById("output").innerText = "Error: " + err;
+        });
+    }
+
+    // Botón de consulta manual
+    document.getElementById('btnConsultar').addEventListener('click', function() {
+      var lat = parseFloat(document.getElementById('latInput').value);
+      var lon = parseFloat(document.getElementById('lonInput').value);
+
+      if (isNaN(lat) || isNaN(lon)) {
+        alert("Ingresa coordenadas válidas");
+        return;
+      }
+
+      if (marker && map) {
+        var latlng = L.latLng(lat, lon);
+        marker.setLatLng(latlng);
+        map.setView(latlng, 8);
+      }
+
+      consultarAPI(lat, lon);
+    });
+
+    // Botón toggle para mostrar/ocultar mapa
+    document.getElementById('btnShowMap').addEventListener('click', function() {
+      var mapDiv = document.getElementById('mapContainer');
+
+      if (mapDiv.style.display === 'none') {
+        mapDiv.style.display = 'block';
+        this.textContent = "Ocultar mapa";
+
+        // Crear mapa solo una vez
+        if (!map) {
+          map = L.map('mapContainer').setView([23.6345, -102.5528], 5);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+          }).addTo(map);
+
+          map.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
+
+            if (marker) {
+              marker.setLatLng(e.latlng);
+            } else {
+              marker = L.marker(e.latlng, { icon: customIcon }).addTo(map);
+            }
+
+            document.getElementById('latInput').value = lat.toFixed(5);
+            document.getElementById('lonInput').value = lon.toFixed(5);
+
+            consultarAPI(lat, lon);
+          });
+        }
+      } else {
+        mapDiv.style.display = 'none';
+        this.textContent = "Mostrar mapa";
+      }
+    });
+  </script>
+</body>
+</html>
